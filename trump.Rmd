@@ -1,0 +1,229 @@
+---
+title: "trump"
+author: "cb"
+date: "07/11/2020"
+output: html_document
+---
+
+# data 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr)
+library(scales)
+
+df<-tweets_11_06_2020 <- read_csv("~/AtelierR/Trump/tweets_11-06-2020.csv")
+# Attention ajuster à sa configuration de dossier
+df$date2<-as.POSIXlt(df$date)
+```
+
+## La fréquence de tweets
+
+[source](https://www.thetrumparchive.com/)
+
+```{r ts1, fig.width=10}
+
+## plot time series of tweets
+ts_plot(df, "1 day", color="darkblue") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) + labs(
+    x = "nombre de tweets", y = "Nobre de tweets",
+    title = "Fréquence des posts twitters Donald Trump",
+    subtitle = "Nombre de tweets par heure"
+  )+  scale_x_datetime(date_breaks = "1 day", labels = scales::label_date_short())
+
+df %>%
+  dplyr::group_by(isRetweet,isDeleted) %>%
+  ts_plot( "1 week") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"),axis.text.x = element_text(size = 8, angle = 45)) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Fréquence des posts twitter de Donald Trump",
+    subtitle = "Nombre de tweets par  heures")+
+  scale_x_datetime(date_breaks = "1 month", labels = scales::label_date_short())
+
+
+```
+
+# Analyse du sentiment
+
+
+```{r Senti01, eval = FALSE}
+#require(syuzhet)            
+#prend qurelques dizaines de minutes 
+#paramétres
+phrase<-as.character(df$text)
+
+#extraction
+my_text_values_french1<- get_nrc_sentiment(phrase, language="english")
+
+#ajout de la colonne sentiment au tableau de données général:
+sent<-as.data.frame(my_text_values_french1)
+
+
+#ajout
+df<-cbind(df,sent)
+#on sauvegarde pour réemploi ultérieur
+write_rds(df,"df_nrc.rds")
+
+
+```
+
+
+```{r Senti02}
+df<-readRDS("df_nrc.rds")
+df$day<-as.numeric(format(df$date, "%d")) # jour
+df$month<-as.numeric(format(df$date, "%m")) # mois
+df$hour<-as.numeric(format(df$date, "%H")) # heure
+df$Year<-as.numeric(format(df$date, "%Y")) # annnée
+
+df<-df%>% mutate(n_word=lengths(strsplit(text, "\\W+")) ,
+                        nrc_positif=positive/n_word, 
+                        nrc_negatif =negative/n_word,
+                        nrc_neutre=1-((positive+negative)/n_word),
+                        nrc_valence=nrc_positif-nrc_negatif,
+                        nrc_expressivity=nrc_positif+nrc_negatif,
+)
+g1<-ggplot(df,aes(x=nrc_positif))+geom_histogram()+theme_minimal() +labs(title="distribution des termes positifs")
+g2<-ggplot(df,aes(x=nrc_negatif))+geom_histogram()+theme_minimal()+labs(title="distribution des termes négatifs")
+g3<-ggplot(df,aes(x=nrc_neutre))+geom_histogram()+theme_minimal()+labs(title="distribution des termes neutres")
+library(gridExtra)
+grid.arrange(g1,g2,g3,ncol=1)
+#library(ggtern)
+
+#set.seed(1)
+
+```
+Ce serait mieux avec un diagramme ternaire, maiss ggtern perturbe l'affichage des échelles.... A revoir. Ce code fonctionne cependant plot <- ggtern(data = df,
+               aes(x=nrc_positif, y=nrc_negatif, z=nrc_neutre))
+plot + geom_density_tern(geom='polygon',
+                         n         = 20,
+                         aes(fill  = ..level..,
+                             alpha = ..level..)) +
+ geom_point(size=.1) +
+  theme_rgbw() +
+  labs(title = "Example Density/Contour Plot")    +
+  scale_fill_gradient(low = "blue",high = "red")  +
+  guides(color = "none", fill = "none", alpha = "none")
+  
+```{r words01,fig.height=6, fig.width=9}
+library(quanteda)
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       tokens_select(pattern = "^[A-Z]", valuetype = "regex", 
+                     case_insensitive = FALSE, padding = TRUE) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+#ndoc(dfmat_tweets)
+topfeatures(dfmat_tweets)
+dfmat_tweets %>% 
+  textstat_frequency(n = 50) %>% 
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point(color="firebrick") +
+  coord_flip() +
+  labs(x = NULL, y = "Frequency") +
+  theme_minimal()
+
+```
+
+```{r words02,fig.height=6, fig.width=9}
+df$date2<-paste0(df$Year,"-",df$month,"-",df$day)
+df$date2 <- as.POSIXct(strptime(df$date2, "%Y-%m-%d"))
+library(RcppRoll)
+
+df_sent<-df %>%group_by(date2)%>% 
+  summarise(sentiment=mean(nrc_valence, na.rm=TRUE),sentiment_exp=mean(nrc_expressivity, na.rm=TRUE))%>% 
+  mutate(Sentiment=roll_mean(as.numeric(sentiment),7,na.rm = TRUE, fill=NA),Expressivite=roll_mean(as.numeric(sentiment_exp),7,na.rm = TRUE, fill=NA)) %>%select(date2, Sentiment, Expressivite)
+library(reshape2)
+df_sent<-melt(df_sent,id="date2")
+
+g10<-ggplot(data = df_sent, aes(x = date2, y = value, group = variable)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+  geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution du sentiment", x=NULL, subtitle = "lissage: 7 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)
+g10
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+
+# Analyse lexicale
+
+Sur l'ensemble et sur la dernière année
+
+```{r lex1,fig.height=6, fig.width=9}
+library(quanteda)
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       tokens_select(pattern = "^[A-Z]", valuetype = "regex", 
+                     case_insensitive = FALSE, padding = TRUE) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*","amp")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+ndoc(dfmat_tweets)
+
+textplot_wordcloud(dfmat_tweets,min_count=200)
+
+dfmat_tweets %>% 
+  textstat_frequency(n = 50) %>% 
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point(color="firebrick") +
+  coord_flip() +
+  labs(title="les mots les plus fréquents",x = NULL, y = "Frequency") +
+  theme_minimal()
+#l annee de la camapgne
+
+foo<-df %>% filter(Year>2019) 
+toks<-tokens(foo$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       tokens_select(pattern = "^[A-Z]", valuetype = "regex", 
+                     case_insensitive = FALSE, padding = TRUE) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*","amp")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+
+textplot_wordcloud(dfmat_tweets,min_count=100, color = rev(RColorBrewer::brewer.pal(10, "RdBu")))
+
+
+tag_fcm <- fcm(dfmat_tweets)
+toptag <- names(topfeatures(tag_fcm, 300))
+
+head(tag_fcm)
+topgat_fcm <- fcm_select(tag_fcm, pattern = toptag)
+textplot_network(topgat_fcm, min_freq = 30,color="pink", edge_alpha = 0.2, edge_size = 2,vertex_size=.7, vertex_labelsize = 3.5)
+
+```
+```{r pos2,fig.height=6, fig.width=9}
+
+library("quanteda.textmodels")
+#mylsa <- textmodel_lsa(dfmat_tweets)
+
+```
