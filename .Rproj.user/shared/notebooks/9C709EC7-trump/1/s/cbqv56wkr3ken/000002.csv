@@ -1,0 +1,3 @@
+"0","foo<-model %>% closest_to(~""politique"" + ""gouvernement"",30)
+"
+"2","la condition a une longueur > 1 et seul le premier élément est utilisé"

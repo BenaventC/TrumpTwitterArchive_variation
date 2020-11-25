@@ -1,0 +1,8 @@
+"0","library(quanteda)"
+"0","toks<-tokens(df$text)"
+"0","col <-toks %>% "
+"0","       tokens_remove(stopwords(""en"")) %>% "
+"0","       tokens_select(pattern = ""^[A-Z]"", valuetype = ""regex"", "
+"0","                     case_insensitive = FALSE, padding = TRUE) %>% "
+"0","       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)"
+"0","head(col, 40)"

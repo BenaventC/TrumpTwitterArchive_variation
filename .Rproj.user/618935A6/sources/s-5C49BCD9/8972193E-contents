@@ -1,0 +1,442 @@
+---
+title: "MOdèle stm pour les données covid"
+author: "cb et mb"
+date: "30/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,include=TRUE,cache=TRUE,warning=FALSE,message = FALSE )
+library(readr) #lire les donnees
+library(tidyverse) #on ne peut plus s'en passer
+library(quanteda) # les bases du nlp
+library(spacyr)
+devtools::install_github("quanteda/quanteda.corpora")
+devtools::install_github("kbenoit/quanteda.dictionaries")
+library(stringr) #manipuler le texte
+library(pals)
+library(ape) #pour de jolis dendogrammes
+library(tidytext) #du nlp
+library(proustr) #un package sympa pour les dicos
+library(mixr)
+library(widyr)
+library(reshape2) 
+library(igraph) #classic des reseaux
+library(ggrepel) #gestion des labels
+library(ggraph) 
+library(gglorenz) #courbe de concentration
+library('extrafont') #c'est pour igraph
+# Import des fontes du système - cela peut être long
+#font_import()
+#fonts() # Liste des polices disponibles
+#loadfonts(device = "pdf") # Indiquer device = "pdf" pour produire un pdf 
+library(stringi)
+library(gridExtra)
+library(cleanNLP) 
+library(text2vec)
+library(wordVectors)
+library(tsne)
+library(lubridate)
+library("stm")
+
+```
+
+
+# Topic analysis
+
+L'analyse de topic est devenu un classique tu traitement du langage naturel. proposé par  blei en 2003, elle a connu différente variante dont une nous serait utile mais la question du temps
+
+il faut lemmatiser
+
+du lda avec stm
+
+c'est un modèle particulier de topic qu permet d'introduire des co-variables. La nôtre est le temps appréhendé à la semaine
+Roberts, Margaret E., Brandon M. Stewart, Dustin Tingley, Christopher Lucas, Jetson Leder-Luis, Shana Kushner Gadarian, Bethany Albertson, and David G. Rand. "Structural Topic Models for Open-Ended Survey Responses." American Journal of Political Science 58, no 4 (2014): 1064-1082.
+
+## préparation des données
+
+On prépare les données
+utilisation de la collocation pour les bigrams qui correspondent à des expressions. Puis on converti dans le format stm requis
+
+```{r stm01}
+#chargement du fichier des textes et les termes annotés
+obj<-readRDS(file="objCovid.rds")
+df<-readRDS(file = "df_nrc.rds")
+
+#calcul du nombre de termes
+token<-obj$token %>%
+  group_by(doc_id) %>%
+  summarize(length = n())
+#ggplot(token,aes(length))+geom_histogram()
+
+#ajout au fichier des textes
+df<-cbind(df,token)
+#determination de la semaine
+df$day<-as.numeric(format(df$parsed_created_at, "%d")) # jour
+df$month<-as.numeric(format(df$parsed_created_at, "%m")) # mois
+df$date<-paste0("2020","-",df$month,"-",df$day)
+df$date2 <- as.POSIXct(strptime(df$date, "%Y-%m-%d"))
+df<-df %>% mutate( week = week(date2))
+
+#ajout des info textes pour chacun des termes et filtrage sur les noms communs et les textes ayant au moins deux mots
+foo<-obj$token %>% left_join(df, by="doc_id")
+foo<-foo %>% filter( upos=="NOUN" & length>2)
+
+# tres important les regex pour retrouver les variantes
+
+df_lemma<-foo %>% 
+  mutate(lemma=ifelse(grepl("^corona.*",lemma),"corona",lemma),
+         lemma=ifelse(grepl("covid.*",lemma),"covid",lemma),
+         lemma=ifelse(grepl("^masqu.*",lemma),"masque",lemma),
+         lemma=ifelse(grepl("^confine.*",lemma),"confinement",lemma),
+         lemma=ifelse(grepl("d[eéèêë]confin.*",lemma),"déconfinement",lemma),
+         lemma=ifelse(grepl("^gouve.*",lemma),"gouvernement",lemma),
+         lemma=ifelse(grepl("^politi.*",lemma),"politique",lemma),
+         lemma=ifelse(grepl("sanit.*",lemma),"sanitaire",lemma),
+         lemma=ifelse(grepl("^gel.*",lemma),"gel",lemma),
+         lemma=ifelse(grepl("^geste.*",lemma),"geste",lemma),
+         lemma=ifelse(grepl("^test.*",lemma),"test",lemma),
+         lemma=ifelse(grepl("^t[e,é])l[e,é].*trav.*",lemma),"télétravail",lemma),
+         lemma=ifelse(grepl("^h([o,ô]|[os,ôs])pital.*",lemma),"hôpital",lemma),
+         upos=ifelse(grepl("^[eéèêë]tre",lemma),"VERB", upos),
+         upos=ifelse(grepl("^avoir",lemma),"VERB",upos),
+         lemma=ifelse(grepl("^chin.*",lemma),"chine",lemma),
+         lemma=ifelse(grepl("^fran[c,ç][e,a].*",lemma),"france",lemma),
+         lemma=ifelse(grepl("^alle.*",lemma),"allemagne",lemma),
+         lemma=ifelse(grepl("^itali*",lemma),"italie",lemma),
+         lemma=ifelse(grepl("^[é,e]tat.*uni.*",lemma),"etats-unis",lemma),
+         lemma=ifelse(grepl("^br[e,é]sil.*",lemma),"bresil",lemma),
+         lemma=ifelse(grepl("^singapour*",lemma),"singapour",lemma),
+         lemma=ifelse(grepl("^viet*",lemma),"vietnam",lemma),
+         lemma=ifelse(grepl("^afri[c,q].*",lemma),"afrique",lemma),
+         lemma=str_replace(lemma, "xxx..*","")
+         ) %>% filter( upos=="NOUN" & lemma!="" & lemma!="" & lemma!="xxxxx" & lemma!="xxxx")
+
+# le refiltrage noun correspond à la recodification des upos
+
+
+lem00<-df_lemma %>% mutate(n=1)%>%
+  group_by(lemma) %>%
+  summarize(n_lem = sum(n))
+
+foo<-lem00 %>% left_join(df_lemma,by="lemma") 
+
+df_noun<-foo %>% select(id,doc_id,token,lemma,date2,n_lem)%>% mutate( week = week(date2))  %>% 
+  filter(lemma!="de") %>% filter(n_lem > 50) 
+
+df_noun1<-na.omit(df_noun)
+
+#un fichier index pour associer les doc_id à un index texte
+lem01<-df_noun %>% mutate(n=1)%>%
+  group_by(doc_id) %>%
+  summarize(n_id = sum(n))
+lem01$i_t<-as.numeric(rownames(lem01))
+
+df_noun2<-lem01 %>% left_join(df_noun,by="doc_id") 
+
+
+################### la boucle ####################################
+
+foo1<-data.frame(matrix( nrow=1, ncol=3))
+foo1$text<-"xxx"
+foo1$i_t<-0
+foo1<- foo1 %>% as.data.frame() %>% select(-X1,-X2,-X3)
+
+foo2<-data.frame(matrix( nrow=1, ncol=3))
+foo2$text<-"xxx"
+foo2$i_t<-0
+foo2<- foo2 %>% as.data.frame() %>% select(-X1,-X2,-X3)
+
+i=457688
+t1=Sys.time()
+
+#la boucle permet de crer le texte mais aussi d'échantillonner au cours du temps avec un pas constant
+for (i in seq(1,457688)) {
+updated_vocabi<-df_noun2 %>% dplyr::filter(i_t==i) 
+foo2$text <- paste(updated_vocabi["lemma"], sep= " ") #on retient les lemmes
+foo2$text<-substring(foo2$text, 3) #on elimine les 3 premier caractères
+foo2$text<-gsub("-", "", foo2$text, fixed=TRUE) #on supprime les tirêt
+foo2$text<-gsub("[[:punct:]]", "", foo2$text) # toute la ponctuation et les slash
+foo2$text <- iconv(foo2$text, to="ASCII//TRANSLIT//IGNORE")
+foo2$text<-gsub("NA", "", foo2$text)
+foo2$i_t<-i
+foo1<-rbind(foo1,foo2)
+}
+foo1<-foo1 %>% filter(i_t>0)
+saveRDS(foo1, "vocabulaire.rds")
+t2=Sys.time()
+
+
+##la préparation pour stm
+text_filtered<-readRDS("vocabulaire.rds")
+text_filtered<-text_filtered %>% left_join(lem01, by=c("i_t"))
+df_user<-df%>%select(id,media,urls,month,tweet_typ,positive, negative,retweet_count,doc_id,week)
+
+text_filtered<-text_filtered %>% left_join(df_user, by=c("doc_id"))
+
+#dfm_sample<-sample_n(text_filtered,40000)
+
+corp<-corpus(text_filtered$text, docvars=(text_filtered))# corps des auteueut
+
+set.seed(100)
+#library("stm")
+
+#head(cols <- textstat_collocations(corp, size = 2, min_count = 2), 10)
+
+dfm<-dfm(corp, tolower = TRUE,remove_punct = TRUE, remove_numbers = FALSE,remove = stopwords("french"),
+  stem = FALSE,  verbose = quanteda_options("verbose"))
+dfm_stm <- convert(dfm, to = "stm")
+```
+
+## Recherche du nombre de sujets
+
+on teste différentes solutions pour K , on dispose de 4 indicateurs
+
+ * La cohérence sémantique est une mesure liée à l'information mutuelle ponctuelle qui a été introduite dans un article de David Mimno, Hanna Wallach et collègues (voir références), :l'idée centrale est que dans les modèles sémantiquement cohérents, les mots qui sont les plus probables sous un sujet devraient se retrouver dans le même document.
+ * l'exclusivité
+ * le résidu : entre la prediction et l'effectif empirique
+ * held hout likehood ; c'est la vraissemblance claculée sur un autre jeu que celui qui a servi à l'estimer.
+ la meilleure et la plus courte est à 24 solutions
+ 
+ Une stratégie de choix consiste à eliminer les solution qui on la plus faible LL. Puis d'arbitrer entre celles qui restent en fonction de la 
+
+```{r stm02}
+
+kresult <- searchK(dfm_stm$documents, dfm_stm$vocab, K = c(30,32,34,36,38,40,50), prevalence =~  s(week)+s(retweet_count), data = dfm_stm$meta)
+plot(kresult)
+k1<-kresult[[1]]
+k_num<-as.data.frame(k1[[1]])
+                     
+k_heldout<-as.data.frame(k1[[4]])
+foo_stm<-cbind(k_num,k_heldout)
+ggplot(foo_stm,aes(x=k_num,y=k_heldout))+geom_col()
+```
+
+Il semble qu'une solution à 20 topics semble intéressante
+
+## calcul du model
+
+la prévalence : l'effet du temps que nous avons déjà dénoté
+
+on présente les résultats en par des nuages de point propre à chacun des topics où la taille des mots est proportionnel à deux indicateurs
+ *  la probabilité que le mot appartiennent au topic, mais un mot fréquent aura une forte proba dans tout les topics
+ * flex qui identifie les mots qui distinguent le topics
+ *La cohérence sémantique est un critère développé par Mimno et al. (2011) et est étroitement liée à l'information mutuelle ponctuelle (Newman et al. 2010) : elle est maximisée lorsque les mots les plus probables d'un sujet donné se retrouvent souvent ensemble. Mimno et al. (2011) montrent que la métrique est en bonne corrélation avec le jugement humain sur la qualité du sujet. Formellement, laissez D(v, v′
+) soit le nombre de fois que les mots v et v′ apparaissent ensemble dans un document. Ensuite, pour une liste des M les plus
+mots probables dans le thème k, la cohérence sémantique pour le thème k est donnée comme la somme des log du rapport de ces coocuurence sur la frequence du mot cible.
+ 
+
+```{r stm03}
+# le nombre de topics choisis
+k=20
+# la spécification du modèle
+set.seed(2020)
+model.stm <- stm(dfm_stm$documents, 
+                 dfm_stm$vocab, 
+                 K = k, max.em.its = 25,
+                 data = dfm_stm$meta, 
+                 init.type = "Spectral", 
+                 prevalence =~ s(week),
+                 interactions = FALSE,
+                 verbose = TRUE) # this is the actual stm call
+label<-as.data.frame(labelTopics(model.stm, n = k)$score)
+labelTopics(model.stm)
+#les 4 scores
+
+plot(model.stm, type = "summary", labeltype="prob",text.cex = 0.7,n=7)
+plot(model.stm, type = "summary", labeltype="score",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="lift",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="frex",text.cex = 0.7,n=5)
+#la qualité des topic
+topicQuality(model.stm , dfm_stm$documents, xlab = "Semantic Coherence",  ylab = "Exclusivity", M = k)
+
+```
+
+
+## la description des topics
+
+type model ?
+
+```{r stm04a, fig.width=9}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+  cloud(model.stm, topic = i, type ="model", max.words = 50, colors="darkblue", random.order=FALSE)
+  text(x=0.5, y=1, paste0("topic",i))
+
+}
+ggsave("cloud01.jpg",plot=last_plot(),width = 9, height = 6)
+```
+ype model doc ?
+
+```{r stm04b, fig.width=12}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+cloud(model.stm, topic = i,type = c("model","documents"), dfm,thresh = 0.1, max.words = 50, colors="firebrick")
+   text(x=0.5, y=1, paste0("topic",i))
+}
+ggsave("cloud02.jpg",plot=last_plot(),width = 9, height = 6)
+
+```
+
+```{r stm04c, fig.width=12}
+
+model.stm.labels <- labelTopics(model.stm, 1:k)
+
+dfm_stm$meta$datum <- as.numeric(dfm_stm$meta$week)
+
+model.stm.ee <- estimateEffect(1:k ~ s(week), model.stm, meta = dfm_stm$meta)
+
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "week", method = "continuous", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+
+}
+ggsave("prevalence.jpg",plot=last_plot(),width = 9, height = 6)
+```
+
+prevalence semaine . Chaque document estmodélisé comme un mélange de plusieurs sujets. La prévalence thématique indique dans quelle mesure chaque sujet contribue à un document. Comme les différents documents proviennent de différentes sources, il est naturel de vouloir laisser cette prévalence varier en fonction des métadonnées dont nous disposons sur les documents sources, en l'occurence ici c'est le temps avec pour unité la semaine.
+https://ldavis.cpsievert.me/reviews/reviews.html
+
+```{r stm04, fig.width=12}
+model.stm.ee <- estimateEffect(1:k ~ tweet_typ, model.stm, meta = dfm_stm$meta)
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "tweet_typ", method = "pointestimate", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+}
+ggsave("prevalence2.jpg",plot=last_plot(),width = 9, height = 6)
+library(LDAvis)
+ldavis<-toLDAvisJson(mod=model.stm, docs=dfm_stm$documents)
+serVis(ldavis, out.dir = 'vis', open.browser = TRUE)
+
+
+
+```
+
+
+retrouver les textes liés aux topic
+
+et regarder les liens ( plutôt positif) entre les topics. L'absence de lien dénote l'existance possible d'une relation négative
+
+semantic coherence is a metric related to pointwise mutual information that was introduced in a paper by David Mimno, Hanna Wallach and colleagues (see references), The paper details a series of manual evaluations which show that their metric is a reasonable surrogate for human judgment. The core idea here is that in models which are semantically coherent the words which are most probable under a topic should co-occur within the same document.
+
+
+```{r stm06, fig.width=15, fig.width=12}
+b<-NULL
+for (i in seq_along((1:k)))
+{
+  a<-paste0(model.stm.labels$score[i,1:3], collapse = "\n")
+  a<-paste("Topic",i,"\n",a)
+b<-rbind(b,a)
+}
+
+label<-as.data.frame(b)
+label
+topicor<-topicCorr(model.stm, method = "simple", cutoff=0.10,verbose = TRUE)
+
+adjmatrix <-topicor[[2]]
+theta <-model.stm[[7]]
+thetat<-melt(theta)
+thetat<-thetat %>%group_by(Var2)%>%summarise(mean=mean(value))
+cbind(label,thetat)
+
+g<-graph_from_adjacency_matrix(adjmatrix, mode = "lower", weighted = TRUE, diag = FALSE, add.colnames = FALSE, add.rownames = b)
+g <- delete.edges(g, E(g)[ abs(weight) < 0.2])
+
+curve_multiple(g)
+set.seed(2021)
+plot(g,layout=layout_with_fr,  margin = c(0, 0, 0, 0),
+     edge.width=abs(E(g)$weight)*15,
+     edge.color=ifelse(E(g)$weight > 0, "grey60","red"),
+     vertex.label=label$V1,
+     vertex.label.family="Arial",
+     vertex.color = adjustcolor("pink2", alpha.f = .2),vertex.label.cex=0.7, vertex.size=400*thetat$mean, vertex.frame.color= "white"
+     )
+ggsave("topicnetwork1.jpg",plot=last_plot(),width = 12, height = 9)
+```
+
+
+```{r stm06b, fig.width=12}
+
+td_beta <- tidy(model.stm,log=FALSE)
+td_beta
+
+names(td_beta) <- label$V1
+
+  # Examine the topics
+  td_beta %>%
+    group_by(topic) %>%
+    top_n(15, beta) %>%
+    ungroup() %>%
+    ggplot(aes(reorder(term,beta), beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+
+    facet_wrap(~ topic, scales = "free", labeller=labeller(topic=label$V1)) + labs(x=NULL)+
+    coord_flip()
+ggsave("topicnetwork2.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+
+  
+td_mask<-td_beta %>% filter (term=="masque")
+
+ggplot(td_mask, aes(x=topic, y=beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+scale_y_log10()+ labs(x=NULL)
+td_mask
+#plot.topicCorr(topicor,layout =  vertex.color = "chartreuse3", vlabel=b, vertex.label.color = "black", vertex.size=2,edge.size=3)
+
+```
+thoughts3 <- findThoughts(model.stm, texts = dfm_sample$text, n = 3, topics = 1)$docs[[1]]
+thoughts3
+thoughts19 <- findThoughts(model.stm, texts = dn$text, n = 2, topics = 19)$docs[[1]]
+thoughts19
+
+
+
+
+https://juliasilge.com/blog/sherlock-holmes-stm/
+You can also embed plots, for example:
+
+ici un modèle spécifique :
+https://cran.r-project.org/web/packages/stm/vignettes/stmVignette.pdf
+
+
+
+les topics des textes :
+
+
+l'entropie maximale est de 39,07 On mesure la différence entre l'entropie observée et l'entropie minimale comme mesure du gain de diversité
+
+```{r word6, fig.width=12}
+k=20
+doc_topic <-as.data.frame(model.stm$theta)
+doc_topic <- cbind(dn,doc_topic)%>%select(-Abstract, -text,-Key,-Title,-decade,-nchar,-n_words)%>% mutate(Year=as.factor(Year))
+
+doc_topic1<-melt(doc_topic)
+
+topic<-doc_topic1 %>% 
+   group_by(Year,variable) %>% 
+   summarise(top=mean(value))%>%ungroup()  %>% mutate(Year=as.numeric(Year)) 
+
+ ggplot(topic,aes(x=Year,y=top)) +
+   geom_line(stat="identity",color="Orange3")+
+   geom_smooth()+theme_minimal()+facet_wrap(vars(variable),ncol=4, scales ="free")
+```
+
+```{r entropie}
+
+ trop<-topic%>% mutate(pLp = top*log(top)) %>% group_by(Year)  %>%summarise(entropie=-sum(pLp)) %>% ungroup 
+ 
+  ggplot(trop,aes(x=Year,y=entropie)) +
+   geom_line(stat="identity",color="darkgreen",size=1.5)+
+   geom_smooth()+theme_minimal() +
+  labs(title="Evolution de l'entropie",y="entropie/diversité",x="Année de publication",caption="corpus PMP")
+
+```
+
+# Références
+
