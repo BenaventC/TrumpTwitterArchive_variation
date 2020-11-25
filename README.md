@@ -5,7 +5,7 @@ Des variations NLP sur le corpus [Trump Twitter Archive](https://www.thetrumparc
  * [Introduction](https://benaventc.github.io/TrumpTwitterArchive_variation/trump1introduction.html) : 
  * [Analyse quantitative de la production des tweets](https://benaventc.github.io/TrumpTwitterArchive_variation/trump2descriptionquanti.html)
  * [Sentiments et émotions](https://benaventc.github.io/TrumpTwitterArchive_variation/trump3Extractiondusentiment.html)
- * [fondement moraux du discours de trump]()
+ * [fondement moraux du discours de trump](https://benaventc.github.io/TrumpTwitterArchive_variation/trump4fondementmoraux.html)
  * [le sujet Biden]()Vectorisation du corpus
  * Cartes sémantique
  * LDA +
