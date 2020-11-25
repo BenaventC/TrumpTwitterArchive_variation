@@ -1,0 +1,176 @@
+---
+title: "TrumpArchive 2 : émotions et sentiment"
+author: "cb"
+date: "07/11/2020"
+output: html_document
+bibliography : MIrM.bib
+---
+
+[Introduction]()
+[Introduction]()
+[Introduction]()
+[Introduction]()
+[Introduction]()
+
+
+## Packages
+
+Les packages utilisés dans l'ensemble de l'analyse sont les suivants
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+```
+
+
+## Extraction du sentiment et des émotions
+
+( valence)
+
+
+```{r Senti01, eval = FALSE}
+#require(syuzhet)            
+#prend qurelques dizaines de minutes 
+#paramétres
+df_txt<-as.character(df$text)
+
+#extraction
+Nrc<- get_nrc_sentiment(df_txt, language="english")
+
+#ajout de la colonne sentiment au tableau de données général:
+Nrc<-as_tibble(Nrc)
+
+#ajout
+df<-cbind(df,Nrc)
+#on sauvegarde pour réemploi ultérieur
+write_rds(df,"df_nrc.rds")
+
+
+```
+
+
+
+## Analyse de l'évolution de la valence
+
+Examiner la distribution
+
+```{r Senti02}
+df<-readRDS("df_nrc.rds")
+
+df$day<-as.numeric(format(df$date, "%d")) # jour
+df$month<-as.numeric(format(df$date, "%m")) # mois
+df$hour<-as.numeric(format(df$date, "%H")) # heure
+df$Year<-as.numeric(format(df$date, "%Y")) # annnée
+df$date2<-paste0(df$Year,"-",df$month,"-",df$day)
+df$date2 <- as.POSIXct(strptime(df$date2, "%Y-%m-%d"))
+
+
+df<-df%>% mutate(n_word=lengths(strsplit(text, "\\W+")) ,
+                        nrc_positif=positive/n_word, 
+                        nrc_negatif =negative/n_word,
+                        nrc_neutre=1-((positive+negative)/n_word),
+                        nrc_valence=nrc_positif-nrc_negatif,
+                        nrc_expressivity=nrc_positif+nrc_negatif,
+)
+g1<-ggplot(df,aes(x=nrc_positif))+geom_histogram(fill="grey")+theme_minimal() +labs(title="distribution des termes positifs")
+g2<-ggplot(df,aes(x=nrc_negatif))+geom_histogram(fill="grey")+theme_minimal()+labs(title="distribution des termes négatifs")
+g3<-ggplot(df,aes(x=nrc_neutre))+geom_histogram(fill="grey")+theme_minimal()+labs(title="distribution des termes neutres")
+library(gridExtra)
+grid.arrange(g1,g2,g3,ncol=1)
+#library(ggtern)
+
+#set.seed(1)
+
+```
+
+
+Ce serait mieux avec un diagramme ternaire, mais ggtern perturbe l'affichage des échelles.... A revoir. Ce code fonctionne cependant plot <- ggtern(data = df,
+               aes(x=nrc_positif, y=nrc_negatif, z=nrc_neutre))
+plot + geom_density_tern(geom='polygon',
+                         n         = 20,
+                         aes(fill  = ..level..,
+                             alpha = ..level..)) +
+ geom_point(size=.1) +
+  theme_rgbw() +
+  labs(title = "Example Density/Contour Plot")    +
+  scale_fill_gradient(low = "blue",high = "red")  +
+  guides(color = "none", fill = "none", alpha = "none")
+
+## Examiner l'évolution 
+
+```{r words02,fig.height=6, fig.width=9}
+library(RcppRoll)
+
+df_sent<-df %>%group_by(date2)%>% 
+  summarise(sentiment=mean(nrc_valence, na.rm=TRUE),sentiment_exp=mean(nrc_expressivity, na.rm=TRUE))%>% 
+  mutate(Sentiment=roll_mean(as.numeric(sentiment),60,na.rm = TRUE,fill=NA),Expressivite=roll_mean(as.numeric(sentiment_exp),60,na.rm = TRUE, fill=NA)) %>%
+  select(date2, Sentiment, Expressivite)
+library(reshape2)
+df_sent<-melt(df_sent,id="date2")
+
+g10<-ggplot(data = df_sent, aes(x = date2, y = value, group = 1)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+  geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution du sentiment", x=NULL, subtitle = "lissage: 7 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)+facet_wrap(vars(variable), ncol=1, scale="free")+scale_color_brewer(palette = "Set2")
+g10
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+## 2.3 Les émotions
+
+
+```{r emo01 ,fig.height=6, fig.width=9}
+library(RcppRoll)
+
+
+
+j=60
+
+df_emo<-df %>%group_by(date2)%>% 
+  summarise(anger=mean(anger, na.rm=TRUE),
+            anticipation=mean(anticipation, na.rm=TRUE),
+            disgust=mean(disgust, na.rm=TRUE),
+            fear= mean(fear, na.rm=TRUE),
+            joy= mean(joy, na.rm=TRUE),
+            sadness= mean(sadness, na.rm=TRUE),
+            surprise= mean(surprise, na.rm=TRUE),
+            trust= mean(trust, na.rm=TRUE)) %>%
+  select(date2, anger, anticipation, disgust, fear,joy,sadness,surprise,trust) %>%
+  mutate(anger=roll_mean(as.numeric(anger),j,na.rm = FALSE,fill=NA),
+         anticipation=roll_mean(as.numeric(anticipation),j,na.rm = TRUE,fill=NA),
+         disgust=roll_mean(as.numeric(disgust),j,na.rm = TRUE,fill=NA),
+         fear=roll_mean(as.numeric(fear),j,na.rm = TRUE,fill=NA),
+         joy=roll_mean(as.numeric(joy),j,na.rm = TRUE,fill=NA),
+         sadness=roll_mean(as.numeric(sadness),j,na.rm = TRUE,fill=NA),
+         surprise=roll_mean(as.numeric(surprise),j,na.rm = TRUE,fill=NA),
+         trust=roll_mean(as.numeric(trust),j,na.rm = TRUE,fill=NA))
+
+
+df_emo<-melt(df_emo,id="date2")
+
+g10<-ggplot(data = df_emo, aes(x = date2, y = value, group = variable)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+ # geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution des émotions", x=NULL, subtitle = "lissage: 60 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)
+g10+facet_wrap(vars(variable),ncol=4)
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+
+
