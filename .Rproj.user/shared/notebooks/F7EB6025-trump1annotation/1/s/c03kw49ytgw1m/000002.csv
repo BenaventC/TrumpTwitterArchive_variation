@@ -1,0 +1,20 @@
+"0","#require(syuzhet)            "
+"0","#prend qurelques dizaines de minutes "
+"0","#paramétres"
+"0","df_txt<-as.character(df$text)"
+"0",""
+"0","#extraction"
+"0","Nrc<- get_nrc_sentiment(df_txt, language=""english"")"
+"2","`data_frame()` is deprecated as of tibble 1.1.0.
+Please use `tibble()` instead.
+[90mThis warning is displayed once every 8 hours.[39m
+[90mCall `lifecycle::last_warnings()` to see where this warning was generated.[39m"
+"0","#ajout de la colonne sentiment au tableau de données général:"
+"0","Nrc<-as_tibble(Nrc)"
+"0",""
+"0","#ajout"
+"0","df<-cbind(df,Nrc)"
+"0","#on sauvegarde pour réemploi ultérieur"
+"0","write_rds(df,""df_nrc.rds"")"
+"0",""
+"0",""
