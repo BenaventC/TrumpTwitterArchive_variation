@@ -1,0 +1,52 @@
+---
+title: "Trump Archive 1 - Introduction"
+author: "MirM 2020"
+date: "07/11/2020"
+output: html_document
+bibliography : MIrM.bib
+---
+
+# Introduction
+
+Ce texte est à la fois une démonstration de techniques d'analyse NLP et un cours écrit et codé conjointement par :
+ * Christophe Benavent
+ *
+ *
+ *
+ *
+ 
+Il s'inscrit dans l'exploration d'un nouvel ensemble de méthodes dans le champs de la gestion et des sciences sociames qui s'appuient sur des corpus importants ( centaines de milliers de textes) venant de différentes sources : 
+
+On utilise une suite d'outils autour du langage r : rstudio, github et zotero pour la bibliographie en utilisant des scripts rmarkdown.
+
+## Packages
+Les packages utilisés dans l'ensemble de l'analyse sont les suivants
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+```
+
+# Dataset
+
+On s'appuie sur un corpus particulier : l'ensemble des tweets émis par Donald Trump et disponible [ici]()
+
+
+```{r data, include=TRUE}
+
+
+df<-tweets_11_06_2020 <- read_csv("~/AtelierR/Trump/tweets_11-06-2020.csv")
+# Attention ajuster à sa configuration de dossier
+df$date2<-as.POSIXlt(df$date)
+write_rds(df,"df.rds")
+
+```
+

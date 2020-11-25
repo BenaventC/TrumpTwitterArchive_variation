@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1606310487337.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2429626415",
+    "id" : "1EB32D39",
+    "lastKnownWriteTime" : 1606310877,
+    "last_content_update" : 1606310877039,
+    "path" : "~/AtelierR/Trump/processing/trump2descriptionquanti.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "38,2",
+        "last_setup_crc32" : "5C49BCD98ce0e038",
+        "scrollLine" : "33"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 7,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

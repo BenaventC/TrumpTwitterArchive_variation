@@ -1,0 +1,7 @@
+"0","# the devtools package needs to be installed for this to work"
+"0","#devtools::install_github(""kbenoit/quanteda.dictionaries"",force=TRUE)"
+"0","library(quanteda.dictionaries)"
+"0","test<-liwcalike(df$text,  dictionary=data_dictionary_MFD)"
+"2","'remove_hyphens' is deprecated, use 'split_hyphens' instead."
+"2","
+"

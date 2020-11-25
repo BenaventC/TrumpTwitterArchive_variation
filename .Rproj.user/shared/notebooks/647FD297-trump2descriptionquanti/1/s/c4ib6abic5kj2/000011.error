@@ -1,0 +1,1 @@
+{"frames":[{"character_number":0,"end_character_number":0,"end_line_number":0,"file":"","func":"readRDS(file = \"df.rds\")","line_number":0},{"character_number":0,"end_character_number":0,"end_line_number":0,"file":"","func":"gzfile(file, \"rb\")","line_number":0}],"message":"Error in gzfile(file, \"rb\") : impossible d'ouvrir la connexion\n"}

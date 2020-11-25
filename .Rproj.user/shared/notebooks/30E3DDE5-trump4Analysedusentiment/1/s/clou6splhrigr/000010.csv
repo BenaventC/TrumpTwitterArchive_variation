@@ -1,0 +1,2 @@
+"0","#count(terms, clus)$n[2]"
+"0","text(rtsne_out$Y, labels=rownames(subset),cex=0.8)#col=color.vec[terms$clus])"

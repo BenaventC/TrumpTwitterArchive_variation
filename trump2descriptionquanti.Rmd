@@ -1,0 +1,93 @@
+---
+title: "Trump 2 - analyse quantitative des tweets"
+author: "MirM 2020"
+date: "07/11/2020"
+output: html_document
+bibliography : MIrM.bib
+---
+
+[Introduction]()
+
+
+## Packages
+Les packages utilisés dans l'ensemble de l'analyse sont les suivants
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+```
+
+
+# 1. Analyses quantitatives
+
+## 1.1 La fréquence de tweets
+
+selon @oneil_algorithmes_2018
+
+emition= @plutchik_psychoevolutionary_1982
+
+[source](https://www.thetrumparchive.com/)
+
+ * jhkhkh
+
+```{r ts1, fig.width=10}
+df<-readRDS(file = "df.rds")
+  ## plot time series of tweets
+ts_plot(df, "1 day", color="darkblue") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) + labs(
+    x = "nombre de tweets", y = "Nobre de tweets",
+    title = "Fréquence des posts twitters Donald Trump",
+    subtitle = "Nombre de tweets par heure"
+  )+  scale_x_datetime(date_breaks = "1 day", labels = scales::label_date_short())
+
+df %>%
+  dplyr::group_by(isRetweet,isDeleted) %>%
+  ts_plot( "1 week") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"),axis.text.x = element_text(size = 8, angle = 45)) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Fréquence des posts twitter de Donald Trump",
+    subtitle = "Nombre de tweets par  heures")+
+  scale_x_datetime(date_breaks = "1 month", labels = scales::label_date_short())
+
+
+```
+
+## 1.2 la performance
+
+```{r success}
+
+max<-max(df$favorites)
+
+g02a<-ggplot(df,aes(x=favorites))+geom_histogram(fill="pink",alpha=0.8)+theme_minimal()+labs(title=paste0("distribution des favoris - max=",max))+scale_y_log10()
+
+
+max<-max(df$retweets)
+
+g02b<-ggplot(df,aes(x=retweets))+geom_histogram(fill="pink",alpha=0.5)+theme_minimal()+labs(title=paste0("distribution des retweets - max=",max))+scale_y_log10()
+
+grid.arrange(g02a, g02b, ncol=1)
+
+library(lubridate)
+df<-df%>%mutate(year = year(date))
+
+foo<-df%>% group_by(year) %>% summarise(retweets=sum(retweets),favorites=sum(favorites))
+foo<-melt(foo, id="year")
+
+
+ggplot(foo,aes(x=year, y=value, group=variable))+
+  geom_line(aes(color=variable), size=1.2)+
+  theme_minimal()+  scale_y_continuous(labels=comma)+labs(title=paste0("Evolution du cumul annuel des rt et likes des tweets de trump"))
+
+```
+
