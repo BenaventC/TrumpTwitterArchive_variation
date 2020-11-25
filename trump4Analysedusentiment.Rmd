@@ -1,0 +1,680 @@
+---
+title: "Trump 2 analyse du sentiment des tweets"
+author: "cb"
+date: "07/11/2020"
+output: html_document
+bibliography : fichier.bib
+---
+
+[Introduction]()
+[Introduction]()
+[Introduction]()
+[Introduction]()
+[Introduction]()
+
+
+## Packages
+
+Les packages utilisés dans l'ensemble de l'analyse sont les suivants
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+```
+
+
+## Extraction du sentiment et des émotions
+
+( valence)
+
+
+```{r Senti01, eval = FALSE}
+#require(syuzhet)            
+#prend qurelques dizaines de minutes 
+#paramétres
+df_txt<-as.character(df$text)
+
+#extraction
+Nrc<- get_nrc_sentiment(df_txt, language="english")
+
+#ajout de la colonne sentiment au tableau de données général:
+Nrc<-as_tibble(Nrc)
+
+#ajout
+df<-cbind(df,Nrc)
+#on sauvegarde pour réemploi ultérieur
+write_rds(df,"df_nrc.rds")
+
+
+```
+
+un autre dictionnaire sur les valeurs morales
+
+https://rdrr.io/github/kbenoit/quanteda.dictionaries/man/data_dictionary_MFD.html
+
+
+```{r liwc01, eval = TRUE}
+# the devtools package needs to be installed for this to work
+#devtools::install_github("kbenoit/quanteda.dictionaries",force=TRUE)
+library(quanteda.dictionaries)
+test<-liwcalike(df$text,  dictionary=data_dictionary_MFD)
+library(kableExtra)
+kable(head(test,5))
+
+df<-cbind(df,test)
+
+write_rds(df,"df_nrcliwc.rds")
+
+foo<-readRDS("df_nrcliwc.rds")
+fit<-lm(log(favorites+1)~anger+anticipation+trust+joy+fear+surprise+ authority.virtue+care.virtue, data =foo)
+summary(fit)
+
+```
+
+## 2.2 Analyse de l'évolution de la valence
+
+Examiner la distribution
+
+```{r Senti02}
+df<-readRDS("df_nrcliwc.rds")
+
+df$day<-as.numeric(format(df$date, "%d")) # jour
+df$month<-as.numeric(format(df$date, "%m")) # mois
+df$hour<-as.numeric(format(df$date, "%H")) # heure
+df$Year<-as.numeric(format(df$date, "%Y")) # annnée
+df$date2<-paste0(df$Year,"-",df$month,"-",df$day)
+df$date2 <- as.POSIXct(strptime(df$date2, "%Y-%m-%d"))
+
+
+df<-df%>% mutate(n_word=lengths(strsplit(text, "\\W+")) ,
+                        nrc_positif=positive/n_word, 
+                        nrc_negatif =negative/n_word,
+                        nrc_neutre=1-((positive+negative)/n_word),
+                        nrc_valence=nrc_positif-nrc_negatif,
+                        nrc_expressivity=nrc_positif+nrc_negatif,
+)
+g1<-ggplot(df,aes(x=nrc_positif))+geom_histogram()+theme_minimal() +labs(title="distribution des termes positifs")
+g2<-ggplot(df,aes(x=nrc_negatif))+geom_histogram()+theme_minimal()+labs(title="distribution des termes négatifs")
+g3<-ggplot(df,aes(x=nrc_neutre))+geom_histogram()+theme_minimal()+labs(title="distribution des termes neutres")
+library(gridExtra)
+grid.arrange(g1,g2,g3,ncol=1)
+#library(ggtern)
+
+#set.seed(1)
+
+```
+Ce serait mieux avec un diagramme ternaire, maiss ggtern perturbe l'affichage des échelles.... A revoir. Ce code fonctionne cependant plot <- ggtern(data = df,
+               aes(x=nrc_positif, y=nrc_negatif, z=nrc_neutre))
+plot + geom_density_tern(geom='polygon',
+                         n         = 20,
+                         aes(fill  = ..level..,
+                             alpha = ..level..)) +
+ geom_point(size=.1) +
+  theme_rgbw() +
+  labs(title = "Example Density/Contour Plot")    +
+  scale_fill_gradient(low = "blue",high = "red")  +
+  guides(color = "none", fill = "none", alpha = "none")
+
+Examiner l'évolution 
+
+```{r words02,fig.height=6, fig.width=9}
+library(RcppRoll)
+
+df_sent<-df %>%group_by(date2)%>% 
+  summarise(sentiment=mean(nrc_valence, na.rm=TRUE),sentiment_exp=mean(nrc_expressivity, na.rm=TRUE))%>% 
+  mutate(Sentiment=roll_mean(as.numeric(sentiment),60,na.rm = TRUE,fill=NA),Expressivite=roll_mean(as.numeric(sentiment_exp),60,na.rm = TRUE, fill=NA)) %>%
+  select(date2, Sentiment, Expressivite)
+library(reshape2)
+df_sent<-melt(df_sent,id="date2")
+
+g10<-ggplot(data = df_sent, aes(x = date2, y = value, group = 1)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+  geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution du sentiment", x=NULL, subtitle = "lissage: 7 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)+facet_wrap(vars(variable), ncol=1, scale="free")+scale_color_brewer(palette = "Set2")
+g10
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+## 2.3 Les émotions
+
+
+```{r emo01 ,fig.height=6, fig.width=9}
+library(RcppRoll)
+
+
+
+j=60
+
+df_emo<-df %>%group_by(date2)%>% 
+  summarise(anger=mean(anger, na.rm=TRUE),
+            anticipation=mean(anticipation, na.rm=TRUE),
+            disgust=mean(disgust, na.rm=TRUE),
+            fear= mean(fear, na.rm=TRUE),
+            joy= mean(joy, na.rm=TRUE),
+            sadness= mean(sadness, na.rm=TRUE),
+            surprise= mean(surprise, na.rm=TRUE),
+            trust= mean(trust, na.rm=TRUE)) %>%
+  select(date2, anger, anticipation, disgust, fear,joy,sadness,surprise,trust) %>%
+  mutate(anger=roll_mean(as.numeric(anger),j,na.rm = FALSE,fill=NA),
+         anticipation=roll_mean(as.numeric(anticipation),j,na.rm = TRUE,fill=NA),
+         disgust=roll_mean(as.numeric(disgust),j,na.rm = TRUE,fill=NA),
+         fear=roll_mean(as.numeric(fear),j,na.rm = TRUE,fill=NA),
+         joy=roll_mean(as.numeric(joy),j,na.rm = TRUE,fill=NA),
+         sadness=roll_mean(as.numeric(sadness),j,na.rm = TRUE,fill=NA),
+         surprise=roll_mean(as.numeric(surprise),j,na.rm = TRUE,fill=NA),
+         trust=roll_mean(as.numeric(trust),j,na.rm = TRUE,fill=NA))
+
+
+df_emo<-melt(df_emo,id="date2")
+
+g10<-ggplot(data = df_emo, aes(x = date2, y = value, group = variable)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+ # geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution des émotions", x=NULL, subtitle = "lissage: 60 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)
+g10
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+
+## 2.4 les valeurs morales
+
+
+
+```{r emo01 ,fig.height=6, fig.width=9}
+library(RcppRoll)
+
+j=60
+
+df_emo<-df %>%group_by(date2)%>% 
+  summarise(care.virtue=mean(care.virtue, na.rm=TRUE),
+            care.vice=-mean(care.vice, na.rm=TRUE),
+            fairness.virtue=mean(fairness.virtue, na.rm=TRUE),
+            fairness.vice= -mean(fairness.vice, na.rm=TRUE),
+            loyalty.virtue= mean(loyalty.virtue, na.rm=TRUE),
+            loyalty.vice = -mean(loyalty.vice, na.rm=TRUE),
+            authority.virtue= mean(authority.virtue, na.rm=TRUE),
+            authority.vice= -mean(authority.vice, na.rm=TRUE),
+            sanctity.virtue= mean(sanctity.virtue, na.rm=TRUE),
+            sanctity.vice= -mean(sanctity.vice, na.rm=TRUE)
+            ) %>%
+  select(date2, care.virtue,care.vice,
+            fairness.virtue,fairness.vice,
+            loyalty.virtue,loyalty.vice,
+            authority.virtue,authority.vice,
+            sanctity.virtue,sanctity.vice
+) %>%
+  mutate(care.virtue=roll_mean(as.numeric(care.virtue),j,na.rm = FALSE,fill=NA),
+         care.vice=roll_mean(as.numeric(care.vice),j,na.rm = TRUE,fill=NA),
+         fairness.virtue=roll_mean(as.numeric(fairness.virtue),j,na.rm = TRUE,fill=NA),
+         fairness.vice=roll_mean(as.numeric(fairness.vice),j,na.rm = TRUE,fill=NA),
+         loyalty.virtue=roll_mean(as.numeric(loyalty.virtue),j,na.rm = TRUE,fill=NA),
+         loyalty.vice=roll_mean(as.numeric(loyalty.vice),j,na.rm = TRUE,fill=NA),
+         authority.virtue=roll_mean(as.numeric(authority.virtue),j,na.rm = TRUE,fill=NA),
+         authority.vice=roll_mean(as.numeric(authority.vice),j,na.rm = TRUE,fill=NA),
+         sanctity.virtue=roll_mean(as.numeric(sanctity.virtue),j,na.rm = TRUE,fill=NA),
+         sanctity.vice=roll_mean(as.numeric(sanctity.vice),j,na.rm = TRUE,fill=NA)
+         )
+
+df$date2<-as.factor(df$date2)
+df_emo<-melt(df_emo,id="date2")
+col=c("orange3","orange1","chartreuse3","chartreuse1","skyblue3","skyblue2","grey50","grey90","purple3", "purple1")
+g10<-ggplot(data = df_emo, aes(x = date2, y = value, group = variable)) +
+  geom_line(aes(color=variable), size =0.8)+
+  theme_minimal()+
+ # geom_smooth(method = "gam",aes(color=variable))+
+  labs(title ="Evolution des émotions", x=NULL, subtitle = "lissage: 60 jours",y="valeur")+
+  geom_vline(xintercept = as.POSIXct("2016-11-04",format="%Y-%m-%d"), linetype="solid",color = "grey40", alpha=.5,size=3)
+g10+scale_color_manual(values=col)
+
+#ggsave("evolutionmasque1.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+```
+# 3. Prédire le succès avec les valeurs morales et les émotions. 
+
+
+
+# 4. Analyse lexicale
+
+Sur l'ensemble et sur la dernière année @fruchterman_graph_1991
+
+## ngram et collocation 
+
+```{r words01,fig.height=6, fig.width=9}
+library(quanteda)
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+```
+
+en ne retenant que les noms propres ( majuscule en première position)
+
+```{r words01,fig.height=6, fig.width=9}
+library(quanteda)
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       tokens_select(pattern = "^[A-Z]", valuetype = "regex", 
+                     case_insensitive = FALSE, padding = TRUE) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 40)
+
+toks_comp <- tokens_compound(toks_comp, pattern = col)
+```
+
+
+
+## word cloud
+
+```{r words02,fig.height=6, fig.width=9}
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+#ndoc(dfmat_tweets)
+#topfeatures(dfmat_tweets)
+dfmat_tweets %>% 
+  textstat_frequency(n = 80) %>% 
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point(color="firebrick") +
+  coord_flip() +
+  labs(x = NULL, y = "Frequency") +
+  theme_minimal()
+textplot_wordcloud(dfmat_tweets,min_count=300)
+
+```
+l'année de la campagne ( 2020)
+```{r lex1,fig.height=6, fig.width=9}
+
+
+#l annee de la campgne
+df$Year<-as.numeric(format(df$date, "%Y")) # annnée
+
+foo<-df %>%select(-date2) %>% filter(Year>2019) 
+toks<-tokens(foo$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*","amp")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+
+textplot_wordcloud(dfmat_tweets,min_count=50, color = rev(RColorBrewer::brewer.pal(10, "RdBu")))
+
+```
+
+## graphe sémantique
+
+
+```{r semant,fig.height=6, fig.width=9}
+
+tag_fcm <- fcm(dfmat_tweets)
+toptag <- names(topfeatures(tag_fcm, 500))
+
+head(tag_fcm)
+topgat_fcm <- fcm_select(tag_fcm, pattern = toptag)
+textplot_network(topgat_fcm, min_freq = 30,color="pink", edge_alpha = 0.2, edge_size = 2,vertex_size=.7, vertex_labelsize = 3.5)
+
+```
+
+# 3. Pos et dependences syntaxique
+
+Le cas Biden
+
+
+## 3.1. Vectorisation
+
+En lecture word2vec
+
+
+
+On prépare les données en " résumant" les tweets à leur plus simple expression
+
+```{r prep, warning=FALSE, message=FALSE}
+library(cleanNLP) #pour les POS et Dépendences syntaxiques
+install.packages("remotes")
+remotes::install_github("bmschmidt/wordVectors")
+library(wordVectors)
+# initialisation du modèle , ici udpipe, mais aussi spacy corenlp ou stringi
+#(un travail devrait être de comprer ces méthodes par le taux de couvrement!!!!)
+cnlp_init_udpipe(model_name  = "english")
+#lecture de l'ensemble de nos tweets
+obj<-df$text 
+foo<-tokens(obj, remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE,
+  padding = FALSE) %>%
+  tokens_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*","amp", "RT")) %>%
+  tokens_select(pattern="<U+.*",  selection = "remove", valuetype = "regex")%>%
+  tokens_tolower() 
+
+foo1<-data.frame(
+  id = seq_along(foo),
+  text = sapply(foo, paste, collapse = " "),
+  row.names = NULL
+)
+
+#library(cleanNLP)
+#Annotation des tweets afin de pouvoir identifier les stopwords
+t0<-Sys.time() #date de départ
+Vocab<-cnlp_annotate(foo1$text,verbose=5000)
+t1<-Sys.time() #date de fin.... juste pour controler une opération qui peut prendre 40 mn sur un processeeur 4 couer à 3.6ghz et 32g de ram.
+#filtrage sur les stopwords
+foo<-as.data.frame(Vocab[c("token")])
+
+ggplot(foo,aes(x=token.upos))+
+  geom_bar()+coord_flip() +
+  theme_minimal()
+ggplot(foo,aes(x=token.relation))+
+  geom_bar()+
+  coord_flip()
+#on filttre adverbes adjectifs verb et non communs
+updated_vocab <- foo %>% filter(token.upos %in% c('ADV','ADJ','VERB', 'NOUN'))
+#on crée une chaine de caractère qui concatène les lemmes filtrés
+all_tweets <- paste(updated_vocab['token.lemma'], sep= " ")
+#on génère le fichier de ces twitts " purifiés"
+write.table(all_tweets, file="tweets.txt")
+#Nettoyage des tweets et identification des n-grammes en vue d'entraîner le modèle
+prep_word2vec(origin="tweets.txt",destination="trump_vec.txt",lowercase=T,bundle_ngrams=4)
+
+```
+
+```{r train, warning=TRUE, message=TRUE}
+#Création et entraînement du modèle vectoriel
+
+model = train_word2vec("trump_vec.txt","trump.bin",vectors=250
+                         ,threads=4,window=5,iter=10,negative_samples=0,force=TRUE, min_count=50)
+
+
+```
+
+```{r}
+foo<-model %>% closest_to(~"biden",30)
+foo = foo [-1:-3,]
+foo$Similarity<-foo[,2]
+g1<-ggplot(foo, aes(x=reorder(word, Similarity),y=Similarity))+
+  geom_point(col="black",size=3)+
+  coord_flip()+theme_minimal()+ggtitle("N-grammes proches Biden")
+g1
+```
+
+```{r solidarité}
+foo<-model %>% closest_to(~ "trump",30)
+foo = foo [-1:-2,]
+foo$Similarity<-foo[,2]
+g1<-ggplot(foo, aes(x=reorder(word, Similarity),y=Similarity))+geom_point(col="black",size=3)+coord_flip()+theme_minimal()+scale_y_log10()+ggtitle("N-grammes proches de election")
+g1
+```
+
+```{r}
+foo<-model %>% wordVectors::closest_to(~("trump"+"biden"),30)
+foo = foo [-1:-2,]
+foo$Similarity<-foo[,2]
+g1<-ggplot(foo, aes(x=reorder(word, Similarity),y=Similarity))+geom_point(col="black",size=3)+coord_flip()+theme_minimal()+scale_y_log10()+ggtitle("N-grammes proches de la protection")
+g1
+```
+
+
+```{r Télétravail, fig.height=7, fig.width=7}
+q_words = c("trump", "biden", "election")
+term_set = lapply(q_words, 
+                  function(q_word) {
+                    nearest_words = model %>% closest_to(model[[q_word]],40)
+                    nearest_words$word
+                  }) %>% unlist
+subset = model[[term_set,average=F]]
+library(Rtsne)
+library(RColorBrewer)
+# run Rtsne with default parameters
+set.seed(57)
+rtsne_out <- Rtsne(as.matrix(subset), perplexity=5)
+# plot the output of Rtsne into d:\\barneshutplot.jpg file of 2400x1800 dimension
+#jpeg("fig.jpg", width=2400, height=1800)
+color.vec = c("#556270", "#4ECDC4", "#1B676B", "#FF6B6B", "#C44D58", "seagreen1", "seagreen4", "slateblue4")
+  brewer.pal(8, "Set3")
+#clus<-as.data.frame(clus)
+#clus$word<-rownames(clus)
+terms<-as.data.frame(rownames(subset))
+terms$word<-terms[,1] 
+#terms<-terms %>% left_join(clus, by = "word")
+plot(rtsne_out$Y, t='n')
+#count(terms, clus)$n[2]
+text(rtsne_out$Y, labels=rownames(subset),cex=0.8)#col=color.vec[terms$clus])
+```
+
+# 5. Analyse de topics dynamiques
+
+
+## 5.1 construction du modèle
+
+
+préparation des données
+
+```{r stm01}
+
+
+##la préparation pour stm
+text_filtered<-readRDS("vocabulaire.rds")
+text_filtered<-text_filtered %>% left_join(lem01, by=c("i_t"))
+df_user<-df%>%select(id,media,urls,month,tweet_typ,positive, negative,retweet_count,doc_id,week)
+
+text_filtered<-text_filtered %>% left_join(df_user, by=c("doc_id"))
+
+#dfm_sample<-sample_n(text_filtered,40000)
+
+corp<-corpus(text_filtered$text, docvars=(text_filtered))# corps des auteueut
+
+set.seed(100)
+#library("stm")
+
+#head(cols <- textstat_collocations(corp, size = 2, min_count = 2), 10)
+
+dfm<-dfm(corp, tolower = TRUE,remove_punct = TRUE, remove_numbers = FALSE,remove = stopwords("french"),
+  stem = FALSE,  verbose = quanteda_options("verbose"))
+dfm_stm <- convert(dfm, to = "stm")
+```
+
+
+```{r stm03}
+# le nombre de topics choisis
+k=20
+# la spécification du modèle
+set.seed(2020)
+model.stm <- stm(dfm_stm$documents, 
+                 dfm_stm$vocab, 
+                 K = k, max.em.its = 25,
+                 data = dfm_stm$meta, 
+                 init.type = "Spectral", 
+                 prevalence =~ s(week),
+                 interactions = FALSE,
+                 verbose = TRUE) # this is the actual stm call
+label<-as.data.frame(labelTopics(model.stm, n = k)$score)
+labelTopics(model.stm)
+#les 4 scores
+
+plot(model.stm, type = "summary", labeltype="prob",text.cex = 0.7,n=7)
+plot(model.stm, type = "summary", labeltype="score",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="lift",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="frex",text.cex = 0.7,n=5)
+#la qualité des topic
+topicQuality(model.stm , dfm_stm$documents, xlab = "Semantic Coherence",  ylab = "Exclusivity", M = k)
+
+```
+
+
+## la description des topics
+
+type model ?
+
+```{r stm04a, fig.width=9}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+  cloud(model.stm, topic = i, type ="model", max.words = 50, colors="darkblue", random.order=FALSE)
+  text(x=0.5, y=1, paste0("topic",i))
+
+}
+ggsave("cloud01.jpg",plot=last_plot(),width = 9, height = 6)
+```
+ype model doc ?
+
+```{r stm04b, fig.width=12}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+cloud(model.stm, topic = i,type = c("model","documents"), dfm,thresh = 0.1, max.words = 50, colors="firebrick")
+   text(x=0.5, y=1, paste0("topic",i))
+}
+ggsave("cloud02.jpg",plot=last_plot(),width = 9, height = 6)
+
+```
+
+```{r stm04c, fig.width=12}
+
+model.stm.labels <- labelTopics(model.stm, 1:k)
+
+dfm_stm$meta$datum <- as.numeric(dfm_stm$meta$week)
+
+model.stm.ee <- estimateEffect(1:k ~ s(week), model.stm, meta = dfm_stm$meta)
+
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "week", method = "continuous", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+
+}
+ggsave("prevalence.jpg",plot=last_plot(),width = 9, height = 6)
+```
+
+prevalence semaine . Chaque document estmodélisé comme un mélange de plusieurs sujets. La prévalence thématique indique dans quelle mesure chaque sujet contribue à un document. Comme les différents documents proviennent de différentes sources, il est naturel de vouloir laisser cette prévalence varier en fonction des métadonnées dont nous disposons sur les documents sources, en l'occurence ici c'est le temps avec pour unité la semaine.
+https://ldavis.cpsievert.me/reviews/reviews.html
+
+```{r stm04, fig.width=12}
+model.stm.ee <- estimateEffect(1:k ~ tweet_typ, model.stm, meta = dfm_stm$meta)
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "tweet_typ", method = "pointestimate", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+}
+ggsave("prevalence2.jpg",plot=last_plot(),width = 9, height = 6)
+library(LDAvis)
+ldavis<-toLDAvisJson(mod=model.stm, docs=dfm_stm$documents)
+serVis(ldavis, out.dir = 'vis', open.browser = TRUE)
+
+
+
+```
+
+
+retrouver les textes liés aux topic
+
+et regarder les liens ( plutôt positif) entre les topics. L'absence de lien dénote l'existance possible d'une relation négative
+
+semantic coherence is a metric related to pointwise mutual information that was introduced in a paper by David Mimno, Hanna Wallach and colleagues (see references), The paper details a series of manual evaluations which show that their metric is a reasonable surrogate for human judgment. The core idea here is that in models which are semantically coherent the words which are most probable under a topic should co-occur within the same document.
+
+
+```{r stm06, fig.width=15, fig.width=12}
+b<-NULL
+for (i in seq_along((1:k)))
+{
+  a<-paste0(model.stm.labels$score[i,1:3], collapse = "\n")
+  a<-paste("Topic",i,"\n",a)
+b<-rbind(b,a)
+}
+
+label<-as.data.frame(b)
+label
+topicor<-topicCorr(model.stm, method = "simple", cutoff=0.10,verbose = TRUE)
+
+adjmatrix <-topicor[[2]]
+theta <-model.stm[[7]]
+thetat<-melt(theta)
+thetat<-thetat %>%group_by(Var2)%>%summarise(mean=mean(value))
+cbind(label,thetat)
+
+g<-graph_from_adjacency_matrix(adjmatrix, mode = "lower", weighted = TRUE, diag = FALSE, add.colnames = FALSE, add.rownames = b)
+g <- delete.edges(g, E(g)[ abs(weight) < 0.2])
+
+curve_multiple(g)
+set.seed(2021)
+plot(g,layout=layout_with_fr,  margin = c(0, 0, 0, 0),
+     edge.width=abs(E(g)$weight)*15,
+     edge.color=ifelse(E(g)$weight > 0, "grey60","red"),
+     vertex.label=label$V1,
+     vertex.label.family="Arial",
+     vertex.color = adjustcolor("pink2", alpha.f = .2),vertex.label.cex=0.7, vertex.size=400*thetat$mean, vertex.frame.color= "white"
+     )
+ggsave("topicnetwork1.jpg",plot=last_plot(),width = 12, height = 9)
+```
+
+
+```{r stm06b, fig.width=12}
+
+td_beta <- tidy(model.stm,log=FALSE)
+td_beta
+
+names(td_beta) <- label$V1
+
+  # Examine the topics
+  td_beta %>%
+    group_by(topic) %>%
+    top_n(15, beta) %>%
+    ungroup() %>%
+    ggplot(aes(reorder(term,beta), beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+
+    facet_wrap(~ topic, scales = "free", labeller=labeller(topic=label$V1)) + labs(x=NULL)+
+    coord_flip()
+ggsave("topicnetwork2.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+
+  
+td_mask<-td_beta %>% filter (term=="masque")
+
+ggplot(td_mask, aes(x=topic, y=beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+scale_y_log10()+ labs(x=NULL)
+td_mask
+#plot.topicCorr(topicor,layout =  vertex.color = "chartreuse3", vlabel=b, vertex.label.color = "black", vertex.size=2,edge.size=3)
+
+```
+
+stm
+# 6 expliquer les likes et rt
+
+comment prendre en compte l'évolution du nombre de follower? où trouver l'info?
+
+sinon travailler par période où une sorte de modèle à décomosition d'erreur. 
+
+spliter les score selon la médiane (pour un équilibre)
+
+
