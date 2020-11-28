@@ -2,13 +2,26 @@
 
 ![trump by trump](greatpresident.jpeg)
 
-Des variations NLP sur le corpus [Trump Twitter Archive](https://www.thetrumparchive.com/), quelques analyses sont [disponibles ici](https://benaventc.github.io/TrumpTwitterArchive_variation/trump.html). On pourra lire ce [document](https://www.researchgate.net/publication/337744581_NLP_text_mining_V40_-_une_introduction_-_cours_programme_doctoral) pour un panorama plus générals des méthodes de base du NLP.
+On exploite ici le corpus [Trump Twitter Archive](https://www.thetrumparchive.com/), des premiers tweets de Trump vers 2010 jusqu'à la veille des résultats qui ont tardé à s'afficher et à faire basculer la décision.
 
-C'est le produit des échanges au sein du cours de méthode quantitatives du master MIrM. Les auteurs par ordre alphabétique sont
+L'objectif est d'en faire une étude de cas qui présente une grande panoplie d'outils de NLP dans l'environnement r. On en trouvera une [synthèse et une biblio ici](https://www.researchgate.net/publication/337744581_NLP_text_mining_V40_-_une_introduction_-_cours_programme_doctoral)
 
+## l'équipe 
+Ces analyses sont le produit des échanges ( Visiophoniques) poursuivis au sein du cours de méthodes quantitatives du [master MIrM](https://ens-paris-saclay.fr/etudes/masters/management) au cours de l'année 2020. 
+Les auteurs, par ordre alphabétique, sont
+
+ * Zoe Allard
+ * Michael Akpoli
  * Christophe Benavent
+ * Léo Denis
+ * Thomas Dessalle
+ * Arthur Gautier
+ * Arnaud Lallement
+ * Lucas Maitrot
+ * Jonas Sanon
  * ...
 
+ 
 ## Sommaire
 
 
