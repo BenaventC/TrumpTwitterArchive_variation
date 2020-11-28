@@ -16,7 +16,7 @@ C'est le produit des échanges au sein du cours de méthode quantitatives du mas
  * [Analyse quantitative de la production des tweets](https://benaventc.github.io/TrumpTwitterArchive_variation/trump2descriptionquanti.html)
  * [Sentiments et émotions](https://benaventc.github.io/TrumpTwitterArchive_variation/trump3Extractiondusentiment.html)
  * [fondement moraux du discours de trump](https://benaventc.github.io/TrumpTwitterArchive_variation/trump4fondementmoraux.html)
- * [le sujet Biden]()Vectorisation du corpus
+ * [le sujet Biden](https://benaventc.github.io/TrumpTwitterArchive_variation/trump5vecteurs.html)Vectorisation du corpus
  * Cartes sémantique
  * LDA +
  * Le succès des Tweets : l'approche par les sentiments
