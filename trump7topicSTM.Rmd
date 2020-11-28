@@ -1,0 +1,237 @@
+---
+title: "trump"
+author: "cb"
+date: "07/11/2020"
+output: html_document
+bibliography : fichier.bib
+---
+
+# Data 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+
+
+df<-readRDS("df_nrcliwc.rds")
+```
+
+
+
+
+## Construction du modèle
+
+
+préparation des données
+
+```{r stm01}
+
+
+##la préparation pour stm
+text_filtered<-readRDS("Vocab.rds")
+text_filtered<-text_filtered %>% left_join(lem01, by=c("i_t"))
+df_user<-df%>%select(id,media,urls,month,tweet_typ,positive, negative,retweet_count,doc_id,week)
+
+text_filtered<-text_filtered %>% left_join(df_user, by=c("doc_id"))
+
+#dfm_sample<-sample_n(text_filtered,40000)
+
+corp<-corpus(text_filtered$text, docvars=(text_filtered))# corps des auteueut
+
+set.seed(100)
+#library("stm")
+
+#head(cols <- textstat_collocations(corp, size = 2, min_count = 2), 10)
+
+dfm<-dfm(corp, tolower = TRUE,remove_punct = TRUE, remove_numbers = FALSE,remove = stopwords("french"),
+  stem = FALSE,  verbose = quanteda_options("verbose"))
+dfm_stm <- convert(dfm, to = "stm")
+```
+
+## Estimation du modèle
+
+
+```{r stm03}
+# le nombre de topics choisi
+k=20
+# la spécification du modèle
+set.seed(2020)
+model.stm <- stm(dfm_stm$documents, 
+                 dfm_stm$vocab, 
+                 K = k, max.em.its = 25,
+                 data = dfm_stm$meta, 
+                 init.type = "Spectral", 
+                 prevalence =~ s(week),
+                 interactions = FALSE,
+                 verbose = TRUE) # this is the actual stm call
+label<-as.data.frame(labelTopics(model.stm, n = k)$score)
+labelTopics(model.stm)
+#les 4 scores
+
+plot(model.stm, type = "summary", labeltype="prob",text.cex = 0.7,n=7)
+plot(model.stm, type = "summary", labeltype="score",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="lift",text.cex = 0.7,n=5)
+plot(model.stm, type = "summary", labeltype="frex",text.cex = 0.7,n=5)
+
+#la qualité des topic
+
+topicQuality(model.stm , dfm_stm$documents, xlab = "Semantic Coherence",  ylab = "Exclusivity", M = k)
+
+```
+
+
+## la description des topics
+
+type model ?
+
+```{r stm04a, fig.width=9}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+  cloud(model.stm, topic = i, type ="model", max.words = 50, colors="darkblue", random.order=FALSE)
+  text(x=0.5, y=1, paste0("topic",i))
+
+}
+ggsave("cloud01.jpg",plot=last_plot(),width = 9, height = 6)
+```
+ype model doc ?
+
+```{r stm04b, fig.width=12}
+
+par(mfrow = c(4,5) , mar = c(0,0,0,0))
+for (i in seq_along((1:k)))
+{
+cloud(model.stm, topic = i,type = c("model","documents"), dfm,thresh = 0.1, max.words = 50, colors="firebrick")
+   text(x=0.5, y=1, paste0("topic",i))
+}
+ggsave("cloud02.jpg",plot=last_plot(),width = 9, height = 6)
+
+```
+
+```{r stm04c, fig.width=12}
+
+model.stm.labels <- labelTopics(model.stm, 1:k)
+
+dfm_stm$meta$datum <- as.numeric(dfm_stm$meta$week)
+
+model.stm.ee <- estimateEffect(1:k ~ s(week), model.stm, meta = dfm_stm$meta)
+
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "week", method = "continuous", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+
+}
+ggsave("prevalence.jpg",plot=last_plot(),width = 9, height = 6)
+```
+
+prevalence semaine . Chaque document estmodélisé comme un mélange de plusieurs sujets. La prévalence thématique indique dans quelle mesure chaque sujet contribue à un document. Comme les différents documents proviennent de différentes sources, il est naturel de vouloir laisser cette prévalence varier en fonction des métadonnées dont nous disposons sur les documents sources, en l'occurence ici c'est le temps avec pour unité la semaine.
+https://ldavis.cpsievert.me/reviews/reviews.html
+
+```{r stm04, fig.width=12}
+model.stm.ee <- estimateEffect(1:k ~ tweet_typ, model.stm, meta = dfm_stm$meta)
+par(mfrow = c(4,5) , mar = c(1,0,2,0))
+for (i in seq_along((1:k)))
+{
+  plot(model.stm.ee, "tweet_typ", method = "pointestimate", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = "-"), printlegend = T)
+}
+ggsave("prevalence2.jpg",plot=last_plot(),width = 9, height = 6)
+library(LDAvis)
+ldavis<-toLDAvisJson(mod=model.stm, docs=dfm_stm$documents)
+serVis(ldavis, out.dir = 'vis', open.browser = TRUE)
+
+
+
+```
+
+
+retrouver les textes liés aux topic
+
+et regarder les liens ( plutôt positif) entre les topics. L'absence de lien dénote l'existance possible d'une relation négative
+
+semantic coherence is a metric related to pointwise mutual information that was introduced in a paper by David Mimno, Hanna Wallach and colleagues (see references), The paper details a series of manual evaluations which show that their metric is a reasonable surrogate for human judgment. The core idea here is that in models which are semantically coherent the words which are most probable under a topic should co-occur within the same document.
+
+
+```{r stm06, fig.width=15, fig.width=12}
+b<-NULL
+for (i in seq_along((1:k)))
+{
+  a<-paste0(model.stm.labels$score[i,1:3], collapse = "\n")
+  a<-paste("Topic",i,"\n",a)
+b<-rbind(b,a)
+}
+
+label<-as.data.frame(b)
+label
+topicor<-topicCorr(model.stm, method = "simple", cutoff=0.10,verbose = TRUE)
+
+adjmatrix <-topicor[[2]]
+theta <-model.stm[[7]]
+thetat<-melt(theta)
+thetat<-thetat %>%group_by(Var2)%>%summarise(mean=mean(value))
+cbind(label,thetat)
+
+g<-graph_from_adjacency_matrix(adjmatrix, mode = "lower", weighted = TRUE, diag = FALSE, add.colnames = FALSE, add.rownames = b)
+g <- delete.edges(g, E(g)[ abs(weight) < 0.2])
+
+curve_multiple(g)
+set.seed(2021)
+plot(g,layout=layout_with_fr,  margin = c(0, 0, 0, 0),
+     edge.width=abs(E(g)$weight)*15,
+     edge.color=ifelse(E(g)$weight > 0, "grey60","red"),
+     vertex.label=label$V1,
+     vertex.label.family="Arial",
+     vertex.color = adjustcolor("pink2", alpha.f = .2),vertex.label.cex=0.7, vertex.size=400*thetat$mean, vertex.frame.color= "white"
+     )
+ggsave("topicnetwork1.jpg",plot=last_plot(),width = 12, height = 9)
+```
+
+
+```{r stm06b, fig.width=12}
+
+td_beta <- tidy(model.stm,log=FALSE)
+td_beta
+
+names(td_beta) <- label$V1
+
+  # Examine the topics
+  td_beta %>%
+    group_by(topic) %>%
+    top_n(15, beta) %>%
+    ungroup() %>%
+    ggplot(aes(reorder(term,beta), beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+
+    facet_wrap(~ topic, scales = "free", labeller=labeller(topic=label$V1)) + labs(x=NULL)+
+    coord_flip()
+ggsave("topicnetwork2.jpg",plot=last_plot(),width = 9, height = 6)
+
+
+
+  
+td_mask<-td_beta %>% filter (term=="masque")
+
+ggplot(td_mask, aes(x=topic, y=beta)) +
+    geom_col(fill="firebrick") +theme_minimal()+scale_y_log10()+ labs(x=NULL)
+td_mask
+#plot.topicCorr(topicor,layout =  vertex.color = "chartreuse3", vlabel=b, vertex.label.color = "black", vertex.size=2,edge.size=3)
+
+```
+
+stm
+# 6 expliquer les likes et rt
+
+comment prendre en compte l'évolution du nombre de follower? où trouver l'info?
+
+sinon travailler par période où une sorte de modèle à décomosition d'erreur. 
+
+spliter les score selon la médiane (pour un équilibre)
+
+

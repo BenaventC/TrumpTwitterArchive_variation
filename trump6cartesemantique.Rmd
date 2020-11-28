@@ -1,0 +1,137 @@
+---
+title: "trump"
+author: "MIrM2020"
+date: "07/11/2020"
+output: html_document
+bibliography : MIrM.bib
+---
+
+# data 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+
+
+df<-readRDS("df_nrcliwc.rds")
+```
+
+
+
+##  Analyse lexicale
+
+Sur l'ensemble et sur la dernière année
+
+## Ngrams et collocation 
+
+rechercher les expressions via la méthode des ngram les plus fréquents et l'analyse de collocation
+
+```{r words01,fig.height=6, fig.width=9}
+#library(quanteda)
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)
+col<-col %>% filter(abs(z)>5)
+
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+```
+
+et  ne retenant que les noms propres ( majuscule en première position)
+
+```{r words01b,fig.height=6, fig.width=9}
+toks<-tokens(df$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       tokens_select(pattern = "^[A-Z]", valuetype = "regex", 
+                     case_insensitive = FALSE, padding = TRUE) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 40)
+
+toks_comp <- tokens_compound(toks_comp, pattern = col)
+```
+
+
+
+## Nuage de mot
+
+le corpus des termes est constitué d'unigram et de ngrams.
+
+```{r words02,fig.height=6, fig.width=9}
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+#ndoc(dfmat_tweets)
+#topfeatures(dfmat_tweets)
+dfmat_tweets %>% 
+  textstat_frequency(n = 80) %>% 
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point(color="firebrick") +
+  coord_flip() +
+  labs(x = NULL, y = "Frequency") +
+  theme_minimal()
+textplot_wordcloud(dfmat_tweets,min_count=300)
+
+```
+### l'année de la campagne ( 2020)
+
+
+```{r lex1,fig.height=6, fig.width=9}
+
+
+#l annee de la campgne
+df$Year<-as.numeric(format(df$date, "%Y")) # annnée
+
+foo<-df %>%select(-date2) %>% filter(Year>2019) 
+toks<-tokens(foo$text)
+col <-toks %>% 
+       tokens_remove(stopwords("en")) %>% 
+       textstat_collocations(min_count = 10,size=2:4, tolower = FALSE)%>% filter(abs(z)>5)
+head(col, 20)
+toks_comp <- tokens_compound(toks, pattern = col)
+
+
+dfmat_tweets <- toks_comp %>% 
+    dfm(remove_punct = TRUE, remove_url = TRUE, remove_symbols = TRUE) %>% 
+    dfm_remove(pattern = c("*.tt", "*.uk", "*.com", "rt", "#*", "@*","amp")) %>% 
+    dfm_remove(pattern = stopwords("en"))
+
+textplot_wordcloud(dfmat_tweets,min_count=50, color = rev(RColorBrewer::brewer.pal(10, "RdBu")))
+
+```
+## graphe sémantique
+
+sur les données 2020
+
+
+```{r semant,fig.height=6, fig.width=9}
+
+tag_fcm <- fcm(dfmat_tweets)
+toptag <- names(topfeatures(tag_fcm, 500))
+
+head(tag_fcm)
+topgat_fcm <- fcm_select(tag_fcm, pattern = toptag)
+textplot_network(topgat_fcm, min_freq = 30,color="pink", edge_alpha = 0.2, edge_size = 2,vertex_size=.7, vertex_labelsize = 3.5)
+
+```
+
+
+stm
+# 6 expliquer les likes et rt
+
+comment prendre en compte l'évolution du nombre de follower? où trouver l'info?
+
+sinon travailler par période où une sorte de modèle à décomosition d'erreur. 
+
+spliter les score selon la médiane (pour un équilibre)
+
+
