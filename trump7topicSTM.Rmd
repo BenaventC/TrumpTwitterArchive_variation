@@ -23,7 +23,9 @@ library(quanteda)
 df<-readRDS("df_nrcliwc.rds")
 ```
 
+## Introduction
 
+L'analyse de topic est désormais bien répandue depuis le premier modèle crée par @blei_latent_2003
 
 
 ## Construction du modèle
