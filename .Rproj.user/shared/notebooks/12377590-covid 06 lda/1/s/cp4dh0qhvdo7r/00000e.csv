@@ -1,0 +1,5 @@
+"0","#chargement du fichier des textes et les termes annotés
+obj<-readRDS(""Vocab.rds"")
+"
+"2","Error in gzfile(file, ""rb"") : impossible d'ouvrir la connexion
+"

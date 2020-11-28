@@ -1,0 +1,7 @@
+"0",""
+"0","#on filtre adverbes adjectifs verb et non communs"
+"0","updated_vocab <- foo %>% filter(token.upos %in% c('ADV','ADJ','VERB', 'NOUN'))"
+"0","#on crée une chaine de caractère qui concatène les lemmes filtrés"
+"0","all_tweets <- paste(updated_vocab['token.lemma'], sep= "" "")"
+"0","#on génère le fichier de ces tweets ""purifiés"""
+"0","write.table(all_tweets, file=""tweets.txt"")"

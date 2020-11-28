@@ -1,0 +1,7 @@
+"0","topicor<-topicCorr(model.stm, method = ""simple"", cutoff=0.10,verbose = TRUE)"
+"0",""
+"0","adjmatrix <-topicor[[2]]"
+"0","theta <-model.stm[[7]]"
+"0","thetat<-melt(theta)"
+"0","thetat<-thetat %>%group_by(Var2)%>%summarise(mean=mean(value))"
+"0","cbind(label,thetat)"

@@ -1,0 +1,16 @@
+"0",""
+"0","model.stm.labels <- labelTopics(model.stm, 1:k)"
+"0",""
+"0","dfm_stm$meta$datum <- as.numeric(dfm_stm$meta$year)"
+"0",""
+"0","model.stm.ee <- estimateEffect(1:k ~ s(year), model.stm, meta = dfm_stm$meta)"
+"2","Using formula(x) is deprecated when x is a character vector of length > 1.
+  Consider formula(paste(x, collapse = "" "")) instead."
+"2","Covariate matrix is singular.  See the details of ?estimateEffect() for some common causes.
+             Adding a small prior 1e-5 for numerical stability."
+"0","par(mfrow = c(3,4) , mar = c(1,0,2,0))"
+"0","for (i in seq_along((1:k)))"
+"0","{"
+"0","  plot(model.stm.ee, ""year"", method = ""continuous"", topics = i, main = paste0(model.stm.labels$score[i,1:4], collapse = ""-""), printlegend = T)"
+"0",""
+"0","}"
