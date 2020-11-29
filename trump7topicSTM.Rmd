@@ -1,7 +1,7 @@
 ---
-title: "trump"
-author: "cb"
-date: "07/11/2020"
+title: "Trump vectors : application de word2vec"
+author: "MIrM"
+date: "27/11/2020"
 output: html_document
 bibliography : MIrM.bib
 ---
@@ -19,7 +19,8 @@ library(reshape2) #pour faire des fichiers " longs"
 library(lubridate)
 library(quanteda)
 library(tidyr)
-
+library(stm)
+library(RcppRoll)
 df<-readRDS("df_nrcliwc.rds")
 ```
 

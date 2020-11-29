@@ -1,0 +1,57 @@
+"0",""
+"0","m02<-lm(fav~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise,data=df)"
+"0","m03<-lm(fav~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise+care.virtue+care.vice+fairness.virtue+fairness.vice+loyalty.virtue+loyalty.vice+authority.virtue+authority.vice,data=df)"
+"0",""
+"0","export_summs( m01, m02 ,m03,scale = FALSE)"
+"1","                               ──────────────────────────────────────────────────────────────────
+                                                          Model 1        Model 2        Model 3  
+                                                   ──────────────────────────────────────────────
+                                 (Intercept)          -658.80 ***    -665.01 ***    -664.93 ***  
+                                                       (12.36)        (12.44)        (12.45)     
+                                 positive                0.21 ***       0.10 ***       0.14 ***  
+                                                        (0.02)         (0.02)         (0.02)     
+                                 negative                0.37 ***       0.12 ***       0.08 *    
+                                                        (0.02)         (0.03)         (0.03)     
+                                 year                    0.33 ***       0.33 ***       0.33 ***  
+                                                        (0.01)         (0.01)         (0.01)     
+                                 positive:negative       0.21 ***       0.22 ***       0.22 ***  
+                                                        (0.01)         (0.01)         (0.01)     
+                                 anger                                  0.20 ***       0.17 ***  
+                                                                       (0.04)         (0.04)     
+                                 anticipation                           0.20 ***       0.19 ***  
+                                                                       (0.03)         (0.03)     
+                                 disgust                                0.20 ***       0.15 ***  
+                                                                       (0.04)         (0.04)     
+                                 fear                                  -0.10 **       -0.09 **   
+                                                                       (0.03)         (0.03)     
+                                 joy                                    0.21 ***       0.16 ***  
+                                                                       (0.04)         (0.04)     
+                                 sadness                                0.32 ***       0.34 ***  
+                                                                       (0.04)         (0.04)     
+                                 surprise                              -0.35 ***      -0.31 ***  
+                                                                       (0.03)         (0.03)     
+                                 care.virtue                                          -0.02      
+                                                                                      (0.01)     
+                                 care.vice                                            -0.00      
+                                                                                      (0.02)     
+                                 fairness.virtue                                       0.04 *    
+                                                                                      (0.02)     
+                                 fairness.vice                                         0.20 ***  
+                                                                                      (0.02)     
+                                 loyalty.virtue                                        0.18 ***  
+                                                                                      (0.01)     
+                                 loyalty.vice                                          0.18 ***  
+                                                                                      (0.04)     
+                                 authority.virtue                                     -0.10 ***  
+                                                                                      (0.01)     
+                                 authority.vice                                       -0.02      
+                                                                                      (0.03)     
+                                                   ──────────────────────────────────────────────
+                                 N                   55090          55090          55090         
+                                 R2                      0.12           0.12           0.13      
+                               ──────────────────────────────────────────────────────────────────
+                                 *** p < 0.001; ** p < 0.01; * p < 0.05.                         
+
+Column names: names, Model 1, Model 2, Model 3
+"
+"0","plot_summs(m01,m02,m03,plot.distributions = TRUE)"

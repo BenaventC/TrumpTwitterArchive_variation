@@ -1,0 +1,146 @@
+---
+title: "Trump success : l'effet des sentiment, des vertus et des vices"
+author: "MIrM 2020"
+date: "27/11/2020"
+output: 
+  html_document:
+  toc: true
+  toc_depth: 2
+  toc_float: true
+bibliography : MIrM.bib
+---
+
+<style type="text/css">
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 13px;
+}
+h1{
+  font-size: 18px;
+}
+h2{
+  font-size: 16px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+
+
+L'annotation a été réalisée dans la [première section]() où on utilise deux méthodes
+
+ * mesure sur spectre d'emotion de plutchick
+ * mesure des fondement moraux 
+ 
+ Le but du jeu : expliquer la popularité des tweets de trump en fonction de ces indicateurs
+
+# data et packages
+
+```{r setup, include=TRUE, echo=TRUE,warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE, message=FALSE)
+library(tidyverse)
+library(rtweet)
+library(syuzhet)
+library(readr) 
+library(scales) # pour affiner les échelles de ggplot
+library(gridExtra) #pour associer des graph en une figure
+library(reshape2) #pour faire des fichiers " longs"
+library(lubridate)
+library(quanteda)
+library(tidyverse)
+library(lubridate) #pourles dates
+library(quanteda)
+library(tidyr)
+library(stm)
+library(RcppRoll)
+library(jtools) #pour les regressions
+library(interactions)
+
+df<-readRDS("df_nrcliwc.rds")
+```
+
+Une approche par regression des effets du sentiments
+On utilise les outils de visalisation des régressions `jtools` et `interactions`
+
+#  Un modèle simple du sentiment
+
+voir 
+
+on prend le log des twets ( mais voir si meilleur model avec comptage)
+on prend l'année comme proxy du nombre de followers qui augmente systématiquement dans le temps et accroit le niveau de la réponse
+
+
+```{r model1}
+df$retweet_l<-log(df$retweets+1)
+
+m0<-lm(retweet_l~positive*negative,data=df)
+m1<-lm(retweet_l~positive*negative+year,data=df)
+
+export_summs(m0, m1, scale = TRUE)
+plot_summs(m0,plot.distributions = TRUE)
+
+effect_plot(m1,pred=positive, interval=TRUE,rug = FALSE)
+effect_plot(m1,pred=negative, interval=TRUE,rug = FALSE)
+
+interact_plot(model = m1, pred = positive,  modx = negative)+labs(title="Interaction des sentiments positifs et négatifs")
+interact_plot(model = m1, pred = negative,  modx = positive)+labs(title="Interaction des sentiments negatifs et positifs")
+
+```
+
+## Même chose pour les fav
+
+```{r model2}
+df$fav<-log(df$favorites+1)
+
+m00<-lm(fav~positive*negative,data=df)
+m01<-lm(fav~positive*negative+year,data=df)
+
+export_summs(m00, m01, scale = TRUE)
+plot_summs(m00,plot.distributions = TRUE)
+
+effect_plot(m01,pred=positive, interval=TRUE,rug = FALSE)
+effect_plot(m01,pred=negative, interval=TRUE,rug = FALSE)
+
+interact_plot(model = m01, pred = positive,  modx = negative)+labs(title="Interaction des sentiments positifs et négatifs")
+interact_plot(model = m01, pred = negative,  modx = positive)+labs(title="Interaction des sentiments negatifs et positifs")
+
+```
+
+
+
+Sur l'ensemble et sur la dernière année
+
+# On inclut les émotions et les fondement moraux (rt)
+
+
+le langage de la peur plus que de l'émotion
+
+```{r words01}
+
+m2<-lm(retweet_l~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise,data=df)
+m3<-lm(retweet_l~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise+care.virtue+care.vice+fairness.virtue+fairness.vice+loyalty.virtue+loyalty.vice+authority.virtue+authority.vice,data=df)
+
+export_summs( m1, m2 ,m3,scale = FALSE)
+plot_summs(m1,m2,m3,plot.distributions = TRUE)
+
+
+```
+
+# On inclut les émotions et les fondement moraux (fav)
+
+
+le langage de la peur plus que de l'émotion
+
+```{r words0}
+
+m02<-lm(fav~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise,data=df)
+m03<-lm(fav~positive*negative+year+anger+anticipation+disgust+fear+joy+sadness+surprise+care.virtue+care.vice+fairness.virtue+fairness.vice+loyalty.virtue+loyalty.vice+authority.virtue+authority.vice,data=df)
+
+export_summs( m01, m02 ,m03,scale = FALSE)
+plot_summs(m01,m02,m03,plot.distributions = TRUE)
+
+
+```
+

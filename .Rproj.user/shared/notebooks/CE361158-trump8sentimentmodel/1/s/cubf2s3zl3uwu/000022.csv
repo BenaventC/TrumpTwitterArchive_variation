@@ -1,0 +1,2 @@
+"0",""
+"0","interact_plot(model = m01, pred = positive,  modx = negative)+labs(title=""Interaction des sentiments positifs et négatifs"")"

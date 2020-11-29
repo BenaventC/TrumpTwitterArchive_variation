@@ -32,6 +32,6 @@ Les auteurs, par ordre alphabétique, sont
  * [le sujet Biden](https://benaventc.github.io/TrumpTwitterArchive_variation/trump5vecteurs.html) Vectorisation du corpus
  * [Analyse lexicale et carte sémantique](https://benaventc.github.io/TrumpTwitterArchive_variation/trump6cartesemantique.html) : Compter et croiser les mots.
  * [LDA modèle STM](https://benaventc.github.io/TrumpTwitterArchive_variation/trump7topicSTM.html)  La dynamique du discours
- * [Le succès des Tweets 1] : l'approche par les sentiments
+ * [Le succès des Tweets 1](https://benaventc.github.io/TrumpTwitterArchive_variation/trump8sentimentmodel.html) : l'approche par les sentiments et les valeurs
  * [Le succès des Tweets 2] : l'approche par les contenus
 
