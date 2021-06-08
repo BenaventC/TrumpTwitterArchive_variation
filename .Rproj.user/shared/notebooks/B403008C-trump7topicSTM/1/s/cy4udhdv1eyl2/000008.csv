@@ -1,8 +1,0 @@
-"0",""
-"0","par(mfrow = c(3,4) , mar = c(0,0,0,0))"
-"0","for (i in seq_along((1:k)))"
-"0","{"
-"0","  cloud(model.stm, topic = i, type =""model"", max.words = 20, colors=""darkblue"", random.order=FALSE)"
-"0","  text(x=0.5, y=1, paste0(""topic"",i))"
-"0",""
-"0","}"

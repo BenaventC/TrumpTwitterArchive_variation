@@ -1,4 +1,0 @@
-"0",""
-"0","#les 4 scores"
-"0",""
-"0","plot(model.stm, type = ""summary"", labeltype=""prob"",text.cex = 0.7,n=7)"

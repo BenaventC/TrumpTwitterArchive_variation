@@ -1,0 +1,50 @@
+"0",""
+"0",""
+"0","library(plotROC)"
+"2","le package ‘plotROC’ a été compilé avec la version R 4.0.5"
+"0","library(MLeval)"
+"0",""
+"0",""
+"0","res <- evalm(list(nnet_mod,nb_mod, ranger_mod),gnames=c('nn','nb', 'rf'))"
+"2","***MLeval: Machine Learning Model Evaluation***
+"
+"2","Input: caret train function object
+"
+"2","Not averaging probs.
+"
+"2","Group 1 type: cv
+"
+"2","Group 2 type: cv
+"
+"2","Group 3 type: cv
+"
+"2","Observations: 49569
+"
+"2","Number of groups: 3
+"
+"2","Observations per group: 16523
+"
+"2","Positive: yes
+"
+"2","Negative: no
+"
+"2","Group: nn
+"
+"2","Positive: 8270
+"
+"2","Negative: 8253
+"
+"2","Group: nb
+"
+"2","Positive: 8270
+"
+"2","Negative: 8253
+"
+"2","Group: rf
+"
+"2","Positive: 8270
+"
+"2","Negative: 8253
+"
+"2","***Performance Metrics***
+"

@@ -1,0 +1,7 @@
+"0","nb_mod <- train(x = data_df_train,"
+"0","                y = as.factor(response_train),"
+"0","                method = ""naive_bayes"","
+"0","                trControl = trctrl,"
+"0","                tuneGrid = data.frame(laplace = 1,       "
+"0","                                      usekernel = FALSE,"
+"0","                                      adjust = FALSE))"

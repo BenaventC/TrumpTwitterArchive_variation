@@ -1,0 +1,4 @@
+"0",""
+"0","data$id<-row.names(data) "
+"0",""
+"0","ggplot(data, aes(retweets_cl))+geom_bar()"

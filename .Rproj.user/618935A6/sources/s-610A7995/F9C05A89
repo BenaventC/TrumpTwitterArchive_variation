@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1620386407353.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F9C05A89",
+    "lastKnownWriteTime" : 1606637348,
+    "last_content_update" : 1606637348,
+    "path" : "~/_AtelierR/Trump/TrumpTwitterArchive_variation/trump7topicSTM.Rmd",
+    "project_path" : "trump7topicSTM.Rmd",
+    "properties" : {
+        "cursorPosition" : "23,0",
+        "docOutlineVisible" : "0",
+        "last_setup_crc32" : "",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

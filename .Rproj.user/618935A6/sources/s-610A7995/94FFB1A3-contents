@@ -19,7 +19,7 @@ library(reshape2) #pour faire des fichiers " longs"
 library(lubridate)
 library(quanteda)
 library(quanteda.textstats)
-
+library(quanteda.textplots)
 
 df<-readRDS("df_nrcliwc.rds")
 ```

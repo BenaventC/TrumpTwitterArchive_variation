@@ -1,0 +1,7 @@
+"0","knitr::opts_chunk$set(echo = TRUE, cache=TRUE, message=FALSE,warning=FALSE)"
+"0","library(tidyverse)"
+"0","library(tidytext)"
+"0","library(caret)"
+"0",""
+"0",""
+"0","df<-readRDS(""df_nrcliwc.rds"")"

@@ -1,3 +1,0 @@
-"0","ggplot(foo,aes(x=token.relation))+"
-"0","  geom_bar(fill=""Gold2"")+"
-"0","  coord_flip() +theme_minimal()"

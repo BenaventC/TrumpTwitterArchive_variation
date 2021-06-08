@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1620386483966.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "818F0AA6",
+    "lastKnownWriteTime" : 1621661897,
+    "last_content_update" : 1621661897497,
+    "path" : "~/_AtelierR/Trump/TrumpTwitterArchive_variation/trump9ML.Rmd",
+    "project_path" : "trump9ML.Rmd",
+    "properties" : {
+        "cursorPosition" : "366,59",
+        "last_setup_crc32" : "",
+        "scrollLine" : "347"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

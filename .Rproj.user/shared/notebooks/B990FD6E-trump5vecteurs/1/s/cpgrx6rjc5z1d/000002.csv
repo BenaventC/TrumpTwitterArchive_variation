@@ -1,8 +1,0 @@
-"0","Vocab <-read_rds(""Vocab.rds"")"
-"0",""
-"0","foo<-as.data.frame(Vocab[c(""token"")])"
-"0",""
-"0","ggplot(foo,aes(x=token.upos))+"
-"0","  geom_bar(fill=""Gold3"")+"
-"0","  coord_flip() +"
-"0","  theme_minimal()"

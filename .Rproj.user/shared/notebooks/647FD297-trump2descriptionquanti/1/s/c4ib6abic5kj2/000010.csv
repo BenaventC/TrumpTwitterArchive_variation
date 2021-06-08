@@ -1,5 +1,0 @@
-"0","df<-readRDS(file = ""df.rds"")
-"
-"2","impossible d'ouvrir le fichier compressé 'df.rds', cause probable : 'No such file or directory'"
-"2","Error in gzfile(file, ""rb"") : impossible d'ouvrir la connexion
-"
